@@ -11,10 +11,6 @@ import org.spongepowered.asm.mixin.injection.At;
 public class MendingEnchantmentMixin {
     @ModifyReturnValue(method = "getMaxLevel", at = @At("RETURN"))
     public int _mr$setMaxLevel(int original) {
-        MRConfig.ConfigData configData = MRConfig.getConfigs().get(Enchantments.MENDING);
-        if (configData != null) {
-            return configData.maximumMendingLevel();
-        }
         return original;
     }
 }

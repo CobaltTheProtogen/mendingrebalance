@@ -50,9 +50,7 @@ public class MendingHelper {
     }
 
     private static int getRepairPercentage(int level, ItemStack item) {
-        MRConfig.ConfigData configData = MRConfig.getConfigs().get(Enchantments.MENDING);
-        List<? extends Integer> levels = isArmor(item) ? configData.armorRepairPercentages() : configData.toolRepairPercentages();
-        return (level >= 1 && level <= levels.size()) ? levels.get(level - 1) : 0;
+        return MRConfig.getConfigData().getEnchantment().getLevel().get("1").getRepairAmount();
     }
 
 
@@ -61,9 +59,8 @@ public class MendingHelper {
     }
 
     private static int getMendingAmount(int enchantmentLevel, int experienceAmount) {
-        MRConfig.ConfigData configData = MRConfig.getConfigs().get(Enchantments.MENDING);
-        List<? extends Integer> levels = configData.enchantmentRepairAmount();
-        return (enchantmentLevel >= 1 && enchantmentLevel <= levels.size()) ? experienceAmount * levels.get(enchantmentLevel - 1) : 0;
+        int levels = MRConfig.getConfigData().getEnchantment().getLevel().get("1").getRepairAmount();
+        return (enchantmentLevel >= 1 && enchantmentLevel <= levels) ? experienceAmount * levels : 0;
     }
 }
 
