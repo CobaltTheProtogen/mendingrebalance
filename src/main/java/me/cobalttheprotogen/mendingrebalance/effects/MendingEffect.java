@@ -27,8 +27,7 @@ public class MendingEffect extends MobEffect {
             ItemStack randomDamagedItem = getRandomDamagedItem(pLivingEntity);
             int potionLevel = getPotionLevel(pLivingEntity);
             int potionRepairAmount = getMendingRepairAmount(pAmplifier + 1);
-            MRConfig.ConfigData configData = MRConfig.getConfigs().get(Enchantments.MENDING);
-            boolean scaleRepairRateWithPotionLevel = configData.scaleRepairRateWithPotionLevel();
+            boolean scaleRepairRateWithPotionLevel = MRConfig.getConfigData().getPotion().isScaleRepairRateWithAmplifier();
 
             if (randomDamagedItem != null) {
                 int repairPercentage = getRepairPercentage(potionLevel, randomDamagedItem);
@@ -69,9 +68,9 @@ public class MendingEffect extends MobEffect {
     }
 
     private static int getRepairPercentage(int level, ItemStack item) {
-        MRConfig.ConfigData configData = MRConfig.getConfigs().get(Enchantments.MENDING);
-        List<? extends Integer> levels = isArmor(item) ? configData.potionArmorRepairPercentages() : configData.potionToolRepairPercentages();
-        return (level >= 1 && level <= levels.size()) ? levels.get(level - 1) : 0;
+        return isArmor(item) ?
+                MRConfig.getConfigData().getEnchantment().getLevel().get("1").getArmorRepairCap() :
+                MRConfig.getConfigData().getEnchantment().getLevel().get("1").getItemRepairCap();
     }
 
     private static int getDuration(int amplifier) {
@@ -93,8 +92,6 @@ public class MendingEffect extends MobEffect {
     }
 
     private static int getMendingRepairAmount(int level) {
-        MRConfig.ConfigData configData = MRConfig.getConfigs().get(Enchantments.MENDING);
-        List<? extends Integer> levels = configData.potionRepairAmount();
-        return (level >= 1 && level <= levels.size()) ? levels.get(level - 1) : 0;
+        return MRConfig.getConfigData().getPotion().getAmplifier().get("1").getRepairAmount();
     }
 }

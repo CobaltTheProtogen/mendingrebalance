@@ -15,8 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class EnchantmentMixin {
     @Inject(method = "checkCompatibility", at = @At("RETURN"), cancellable = true)
     public void _mr$checkCompatibility(Enchantment enchantment, CallbackInfoReturnable<Boolean> cir) {
-        MRConfig.ConfigData configData = MRConfig.getConfigs().get(Enchantments.MENDING);
-        if (configData != null && configData.mutuallyExclusiveEnchantments().contains(Registry.ENCHANTMENT.getKey(enchantment).toString()) && (Object) this instanceof MendingEnchantment) {
+        if ((Object) this instanceof MendingEnchantment) {
             cir.setReturnValue(false);
         }
     }

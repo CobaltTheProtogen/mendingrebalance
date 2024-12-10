@@ -21,6 +21,8 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.brewing.BrewingRecipeRegistry;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.server.ServerStartedEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -45,7 +47,7 @@ public class MendingRebalance {
     public MendingRebalance() {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         bus.addListener(this::setup);
-        bus.addListener(this::loadConfig);
+        //bus.addListener(this::loadConfig);
         bus.addGenericListener(MobEffect.class, this::onRegisterEffects);
         bus.addGenericListener(Potion.class, this::onRegisterPotions);
         MinecraftForge.EVENT_BUS.register(this);
@@ -124,8 +126,14 @@ public class MendingRebalance {
         }
     }
 
-    private void loadConfig(final FMLCommonSetupEvent event) {
+    /**private void loadConfig(final FMLCommonSetupEvent event) {
         MRConfig.loadConfig(Minecraft.getInstance().getResourceManager());
+    }*/
+
+    @SubscribeEvent
+    public void onServerStarted(ServerStartedEvent event) {
+        LOGGER.info("Loading Mending Rebalance config");
+        MRConfig.loadConfig(event.getServer().getResourceManager());
     }
 }
 
