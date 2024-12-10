@@ -47,7 +47,6 @@ public class MendingRebalance {
     public MendingRebalance() {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         bus.addListener(this::setup);
-        //bus.addListener(this::loadConfig);
         bus.addGenericListener(MobEffect.class, this::onRegisterEffects);
         bus.addGenericListener(Potion.class, this::onRegisterPotions);
         MinecraftForge.EVENT_BUS.register(this);
@@ -125,7 +124,7 @@ public class MendingRebalance {
             );
         }
     }
-    
+
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
         LOGGER.info("Loading Mending Rebalance config");
