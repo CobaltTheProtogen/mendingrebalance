@@ -125,11 +125,7 @@ public class MendingRebalance {
             );
         }
     }
-
-    /**private void loadConfig(final FMLCommonSetupEvent event) {
-        MRConfig.loadConfig(Minecraft.getInstance().getResourceManager());
-    }*/
-
+    
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
         LOGGER.info("Loading Mending Rebalance config");
