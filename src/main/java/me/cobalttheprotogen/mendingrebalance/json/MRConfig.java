@@ -1,146 +1,130 @@
 package me.cobalttheprotogen.mendingrebalance.json;
 
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
-import me.cobalttheprotogen.mendingrebalance.MendingRebalance;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.packs.resources.Resource;
-import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.Enchantments;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.JsonOps;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import java.io.InputStreamReader;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MRConfig {
-    private static final Gson GSON = new Gson();
-    private static final String CONFIG_FILE = "mending_config.json"; // Correct path depends on mod loader
+import com.google.gson.Gson;
+import me.cobalttheprotogen.mendingrebalance.MendingRebalance;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.util.profiling.ProfilerFiller;
+
+import java.util.HashMap;
+import java.util.Optional;
+
+public class MRConfig extends SimpleJsonResourceReloadListener {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().setLenient().create();
+    private static final String DIRECTORY = "config";
     private static final MRConfig INSTANCE = new MRConfig();
-    private static final HashMap<Enchantment, ConfigData> configs = new HashMap<>();
-    private static ConfigData configDataInstance;
+    private static final HashMap<String, ConfigData> config = new HashMap<>();
 
-    public static class ConfigData {
-        private EnchantmentConfig enchantment;
-        private PotionConfig potion;
-
-        public static class EnchantmentConfig {
-            private Map<String, EnchantmentLevelConfig> level;
-            private List<String> mutuallyExclusiveWith;
-            private List<String> itemBlacklist;
-
-            // Getters
-            public Map<String, EnchantmentLevelConfig> getLevel() {
-                return level;
-            }
-
-            public List<String> getMutuallyExclusiveWith() {
-                return mutuallyExclusiveWith;
-            }
-
-            public List<String> getItemBlacklist() {
-                return itemBlacklist;
-            }
-
-            public int getMaxEnchantmentLevel() {
-                return level.keySet().stream()
-                        .mapToInt(Integer::parseInt)
-                        .max()
-                        .orElse(0);
-            }
-
-        }
-
-        public static class EnchantmentLevelConfig {
-            private int armorRepairCap;
-            private int itemRepairCap;
-            private int repairAmount;
-
-            // Getters
-            public int getArmorRepairCap() {
-                return armorRepairCap;
-            }
-
-            public int getItemRepairCap() {
-                return itemRepairCap;
-            }
-
-            public int getRepairAmount() {
-                return repairAmount;
-            }
-        }
-
-        public static class PotionConfig {
-            private Map<String, PotionLevelConfig> amplifier;
-            private boolean potionConsumesExperience;
-            private boolean scaleRepairRateWithAmplifier;
-
-            // Getters
-            public Map<String, PotionLevelConfig> getAmplifier() {
-                return amplifier;
-            }
-
-            public boolean isPotionConsumesExperience() {
-                return potionConsumesExperience;
-            }
-
-            public boolean isScaleRepairRateWithAmplifier() {
-                return scaleRepairRateWithAmplifier;
-            }
-        }
-
-        public static class PotionLevelConfig {
-            private int armorRepairCap;
-            private int itemRepairCap;
-            private int repairAmount;
-
-            // Getters
-            public int getArmorRepairCap() {
-                return armorRepairCap;
-            }
-
-            public int getItemRepairCap() {
-                return itemRepairCap;
-            }
-
-            public int getRepairAmount() {
-                return repairAmount;
-            }
-        }
-
-        // Getters for the root fields
-        public EnchantmentConfig getEnchantment() {
-            return enchantment;
-        }
-
-        public PotionConfig getPotion() {
-            return potion;
-        }
+    public MRConfig() {
+        super(GSON, DIRECTORY);
     }
 
-    public static void loadConfig(ResourceManager resourceManager) {
-        try {
-            Resource resource = resourceManager.getResource(new ResourceLocation(MendingRebalance.MOD_ID, CONFIG_FILE));
-            try (InputStreamReader reader = new InputStreamReader(resource.getInputStream())) {
-                JsonElement jsonElement = JsonParser.parseReader(reader);
-                configDataInstance = GSON.fromJson(jsonElement, ConfigData.class);
-
-                // Debug logs
-                MendingRebalance.LOGGER.info("Loaded config data: {}", GSON.toJson(configDataInstance));
-                MendingRebalance.LOGGER.info("Set maximum mending level to: {}", configDataInstance.getEnchantment().getMaxEnchantmentLevel());
-            }
-        } catch (Exception e) {
-            MendingRebalance.LOGGER.error("Couldn't load Mending Rebalance config", e);
-        }
+    public static int getMaxEnchantmentLevel() {
+        return config.values().stream()
+                .flatMap(configData -> configData.enchantment().level().orElse(Map.of()).keySet().stream())
+                .mapToInt(Integer::parseInt)
+                .max()
+                .orElse(1);
     }
 
-    public static ConfigData getConfigData() {
-        return configDataInstance;
+    public static int getMaxPotionAmplifier() {
+        return config.values().stream()
+                .flatMap(configData -> configData.potion().amplifier().orElse(Map.of()).keySet().stream())
+                .mapToInt(Integer::parseInt)
+                .max()
+                .orElse(0);
     }
 
     public static MRConfig getInstance() {
         return INSTANCE;
     }
+
+    private void addToConfig(ConfigData data) {
+        config.put(String.valueOf(data.enchantment()), data);
+    }
+
+    public static HashMap<String, ConfigData> getConfigData() {
+        return config;
+    }
+
+    @Override
+    protected void apply(Map<ResourceLocation, JsonElement> resources, ResourceManager resourceManager, ProfilerFiller profiler) {
+        config.clear();
+        resources.forEach((resourceLocation, jsonElement) -> {
+            try {
+                DataResult<ConfigData> dataResult = ConfigData.CODEC.parse(JsonOps.INSTANCE, jsonElement);
+                dataResult.resultOrPartial(result -> System.out.println("Parsing config data for " + resourceLocation + " with result: " + result)).ifPresent(this::addToConfig);
+            } catch (Exception e) {
+                MendingRebalance.LOGGER.error("Couldn't parse config data file {}", resourceLocation, e);
+            }
+        });
+    }
+
+    public record ConfigData(
+            EnchantmentConfig enchantment,
+            PotionConfig potion) {
+
+        public static final Codec<ConfigData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                EnchantmentConfig.CODEC.fieldOf("enchantment").forGetter(ConfigData::enchantment),
+                PotionConfig.CODEC.fieldOf("potion").forGetter(ConfigData::potion)
+        ).apply(instance, ConfigData::new));
+    }
+
+    public record EnchantmentConfig(Optional<Map<String, EnchantmentLevelConfig>> level,
+                                    Optional<List<String>> mutuallyExclusiveWith,
+                                    Optional<List<String>> itemBlacklist) {
+        public static final Codec<EnchantmentConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.unboundedMap(Codec.STRING, EnchantmentLevelConfig.CODEC).optionalFieldOf("level").forGetter(EnchantmentConfig::level),
+                Codec.list(Codec.STRING).optionalFieldOf("mutuallyExclusiveWith").forGetter(EnchantmentConfig::mutuallyExclusiveWith),
+                Codec.list(Codec.STRING).optionalFieldOf("itemBlacklist").forGetter(EnchantmentConfig::itemBlacklist)
+        ).apply(instance, EnchantmentConfig::new));
+    }
+
+    public record EnchantmentLevelConfig(Integer armorRepairCap,
+                                         Integer itemRepairCap,
+                                         Integer repairAmount) {
+        public static final Codec<EnchantmentLevelConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.INT.fieldOf("armorRepairCap").forGetter(EnchantmentLevelConfig::armorRepairCap),
+                Codec.INT.fieldOf("itemRepairCap").forGetter(EnchantmentLevelConfig::itemRepairCap),
+                Codec.INT.fieldOf("repairAmount").forGetter(EnchantmentLevelConfig::repairAmount)
+        ).apply(instance, EnchantmentLevelConfig::new));
+    }
+
+    public record PotionConfig(Optional<Map<String, PotionLevelConfig>> amplifier,
+                               Optional<Boolean> createRecipes) {
+
+        public static final Codec<PotionConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.unboundedMap(Codec.STRING, PotionLevelConfig.CODEC).optionalFieldOf("amplifier").forGetter(PotionConfig::amplifier),
+                Codec.BOOL.optionalFieldOf("createRecipes").forGetter(PotionConfig::createRecipes)
+        ).apply(instance, PotionConfig::new));
+    }
+
+    public record PotionLevelConfig(int armorRepairCap,
+                                    int itemRepairCap,
+                                    int repairAmount,
+                                    Optional<Double> repairMultiplier,
+                                    Optional<Boolean> createRecipe) {
+
+        public static final Codec<PotionLevelConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.INT.fieldOf("armorRepairCap").forGetter(PotionLevelConfig::armorRepairCap),
+                Codec.INT.fieldOf("itemRepairCap").forGetter(PotionLevelConfig::itemRepairCap),
+                Codec.INT.fieldOf("repairAmount").forGetter(PotionLevelConfig::repairAmount),
+                Codec.DOUBLE.optionalFieldOf("repairMultiplier").forGetter(PotionLevelConfig::repairMultiplier),
+                Codec.BOOL.optionalFieldOf("createRecipe").forGetter(PotionLevelConfig::createRecipe)
+        ).apply(instance, PotionLevelConfig::new));
+    }
 }
+
+
+

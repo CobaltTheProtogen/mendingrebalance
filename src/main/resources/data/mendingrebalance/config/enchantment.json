@@ -1,0 +1,69 @@
+{
+    "enchantment": {
+        "mutuallyExclusiveWith" : [],
+        "itemBlacklist" : [],
+        "level": {
+            "1": {
+                "armorRepairCap": 17,
+                "itemRepairCap": 25,
+                "repairAmount" : 2
+            },
+            "2": {
+                "armorRepairCap": 25,
+                "itemRepairCap": 50,
+                "repairAmount" : 2
+            },
+            "3": {
+                "armorRepairCap": 17,
+                "itemRepairCap": 25,
+                "repairAmount" : 2
+            },
+            "4": {
+                "armorRepairCap": 25,
+                "itemRepairCap": 50,
+                "repairAmount" : 2
+            }
+        }
+    },
+    "potion": {
+        "createRecipes" : true,
+        "itemBlacklist" : [],
+        "amplifier": {
+            "0": {
+                "armorRepairCap": 17,
+                "itemRepairCap": 25,
+                "repairAmount" : 2,
+                "rateMultiplier" : 10.0,
+                "createRecipe" : true
+            },
+            "1": {
+                "armorRepairCap": 25,
+                "itemRepairCap": 50,
+                "repairAmount" : 2,
+                "rateMultiplier" : 1.0,
+                "createRecipe" : true
+            },
+            "2": {
+                "armorRepairCap": 50,
+                "itemRepairCap": 75,
+                "repairAmount" : 2,
+                "rateMultiplier" : 1.0,
+                "createRecipe" : true
+            },
+            "3": {
+                "armorRepairCap": 75,
+                "itemRepairCap": 100,
+                "repairAmount" : 2,
+                "rateMultiplier" : 1.0,
+                "createRecipe" : true
+            },
+            "4": {
+                "armorRepairCap": 100,
+                "itemRepairCap": 100,
+                "repairAmount": 2,
+                "rateMultiplier" : 1.0,
+                "createRecipe" : true
+            }
+        }
+    }
+}

@@ -1,20 +1,15 @@
 package me.cobalttheprotogen.mendingrebalance.effects;
 
-import me.cobalttheprotogen.mendingrebalance.MendingRebalance;
 import me.cobalttheprotogen.mendingrebalance.json.MRConfig;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantments;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class MendingEffect extends MobEffect {
     public MendingEffect(MobEffectCategory mobEffectCategory, int color) {
@@ -24,43 +19,29 @@ public class MendingEffect extends MobEffect {
     @Override
     public void applyEffectTick(@NotNull LivingEntity pLivingEntity, int pAmplifier) {
         if (!pLivingEntity.level.isClientSide()) {
+            int potionRepairAmount = getMendingRepairAmount(pAmplifier);
             ItemStack randomDamagedItem = getRandomDamagedItem(pLivingEntity);
-            int potionLevel = getPotionLevel(pLivingEntity);
-            int potionRepairAmount = getMendingRepairAmount(pAmplifier + 1);
-            boolean scaleRepairRateWithPotionLevel = MRConfig.getConfigData().getPotion().isScaleRepairRateWithAmplifier();
-
             if (randomDamagedItem != null) {
-                int repairPercentage = getRepairPercentage(potionLevel, randomDamagedItem);
+                int repairPercentage = getRepairPercentage(pAmplifier, randomDamagedItem);
                 int maxRepairAmount = (int) (randomDamagedItem.getMaxDamage() * (repairPercentage / 100.0));
                 int currentRepairAmount = randomDamagedItem.getMaxDamage() - randomDamagedItem.getDamageValue();
                 int remainingRepairCapacity = maxRepairAmount - currentRepairAmount;
 
-                int repairAmountPerTick;
-                if (scaleRepairRateWithPotionLevel) {
-                    repairAmountPerTick = remainingRepairCapacity > 0 ?
-                            (int) Math.max(remainingRepairCapacity / (getDuration(pAmplifier + 1) * 1.025), potionRepairAmount) : 0;
-                } else {
-                    repairAmountPerTick = remainingRepairCapacity > 0 ?
-                            Math.min(remainingRepairCapacity, potionRepairAmount) : 0;
-                }
+                int newAmount = remainingRepairCapacity > 0 ?
+                                Math.min(remainingRepairCapacity, potionRepairAmount) : 0;
 
                 int currentDamage = randomDamagedItem.getDamageValue();
                 if (currentDamage > 0) {
-                    randomDamagedItem.setDamageValue(Math.max(currentDamage - repairAmountPerTick, 0));
+                        randomDamagedItem.setDamageValue(Math.max(currentDamage - newAmount, 0));
+                    }
                 }
             }
-        }
         super.applyEffectTick(pLivingEntity, pAmplifier);
     }
 
     @Override
     public boolean isDurationEffectTick(int pDuration, int pAmplifier) {
-        return pDuration % 20 == 0;
-    }
-
-    public static int getPotionLevel(LivingEntity pLivingEntity) {
-        MobEffectInstance effectInstance = pLivingEntity.getEffect(MendingRebalance.MENDING);
-        return effectInstance != null ? effectInstance.getAmplifier() + 1 : 0;
+        return pDuration % getDuration(pAmplifier) == 0;
     }
 
     private static boolean isArmor(ItemStack item) {
@@ -68,30 +49,59 @@ public class MendingEffect extends MobEffect {
     }
 
     private static int getRepairPercentage(int level, ItemStack item) {
-        return isArmor(item) ?
-                MRConfig.getConfigData().getEnchantment().getLevel().get("1").getArmorRepairCap() :
-                MRConfig.getConfigData().getEnchantment().getLevel().get("1").getItemRepairCap();
+        if (MRConfig.getConfigData().isEmpty()) {
+            return 100; // default value
+        }
+        return getConfigValue(level, isArmor(item));
     }
 
-    private static int getDuration(int amplifier) {
-        return Math.max(200 / (int) Math.pow(2, amplifier + 1), 1);
+    private static int getConfigValue(int level, boolean isArmor) {
+        return MRConfig.getConfigData().values().stream()
+                .map(configData -> configData.potion().amplifier().orElse(Collections.emptyMap()))
+                .map(amplifier -> amplifier.get(String.valueOf(level)))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(config -> isArmor ? config.armorRepairCap() : config.itemRepairCap())
+                .orElse(100); // default value
+    }
+
+    private static int getDuration(int pAmplifier) {
+        return MRConfig.getConfigData().values().stream()
+                .map(configData -> configData.potion().amplifier().orElse(Collections.emptyMap()))
+                .map(amplifier -> amplifier.get(String.valueOf(pAmplifier)))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(config -> Math.max((int) (20 / config.repairMultiplier().orElse(1.0)), 1))
+                .orElse(1); // Ensure the duration is at least 1
     }
 
     public static ItemStack getRandomDamagedItem(LivingEntity pLivingEntity) {
-        ItemStack[] items = {
+        List<ItemStack> items = Arrays.asList(
                 pLivingEntity.getItemBySlot(EquipmentSlot.HEAD),
                 pLivingEntity.getItemBySlot(EquipmentSlot.CHEST),
                 pLivingEntity.getItemBySlot(EquipmentSlot.LEGS),
                 pLivingEntity.getItemBySlot(EquipmentSlot.FEET),
                 pLivingEntity.getMainHandItem(),
                 pLivingEntity.getOffhandItem()
-        };
+        );
 
-        items = Arrays.stream(items).filter(ItemStack::isDamaged).toArray(ItemStack[]::new);
-        return items.length > 0 ? items[new Random().nextInt(items.length)] : null;
+        items = items.stream().filter(ItemStack::isDamaged).toList();
+        return items.isEmpty() ? null : items.get(new Random().nextInt(items.size()));
     }
 
     private static int getMendingRepairAmount(int level) {
-        return MRConfig.getConfigData().getPotion().getAmplifier().get("1").getRepairAmount();
+        if (MRConfig.getConfigData().isEmpty()) {
+            return 2; // default value
+        }
+
+        return MRConfig.getConfigData().values().stream()
+                .map(configData -> configData.potion().amplifier().orElse(Collections.emptyMap()))
+                .map(amplifier -> amplifier.get(String.valueOf(level)))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(MRConfig.PotionLevelConfig::repairAmount)
+                .orElse(2); // Default repair amount if not found
     }
 }
+
+

@@ -8,16 +8,18 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 
-import java.util.List;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 
 public class MendingHelper {
+
     public static int repairPlayerItems(Player player, int amount) {
         ItemStack randomEnchantedItem = getRandomEnchantedItem(player);
-        int enchantmentLevel = getEnchantmentLevel(randomEnchantedItem);
 
-        if (randomEnchantedItem != ItemStack.EMPTY) {
-            int repairPercentage = getRepairPercentage(enchantmentLevel, randomEnchantedItem);
+        if (!randomEnchantedItem.isEmpty()) {
+            int enchantmentLevel = getEnchantmentLevel(randomEnchantedItem);
+            int repairPercentage = getRepairCap(enchantmentLevel, randomEnchantedItem);
             int maxRepairAmount = (int) (randomEnchantedItem.getMaxDamage() * (repairPercentage / 100.0));
             int currentRepairAmount = randomEnchantedItem.getMaxDamage() - randomEnchantedItem.getDamageValue();
             int remainingRepairCapacity = maxRepairAmount - currentRepairAmount;
@@ -49,18 +51,38 @@ public class MendingHelper {
         return entry != null ? entry.getValue() : ItemStack.EMPTY;
     }
 
-    private static int getRepairPercentage(int level, ItemStack item) {
-        return MRConfig.getConfigData().getEnchantment().getLevel().get("1").getRepairAmount();
-    }
+    private static int getRepairCap(int level, ItemStack item) {
+        if (MRConfig.getConfigData().isEmpty()) {
+            return 100; // default value
+        }
 
+        return MRConfig.getConfigData().values().stream()
+                .map(configData -> configData.enchantment().level().orElse(Collections.emptyMap()))
+                .map(levels -> levels.get(String.valueOf(level)))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(config -> isArmor(item) ? config.armorRepairCap() : config.itemRepairCap())
+                .orElse(0); // default value
+    }
 
     private static int getMendingCost(int repairAmount) {
         return repairAmount / 2;
     }
 
-    private static int getMendingAmount(int enchantmentLevel, int experienceAmount) {
-        int levels = MRConfig.getConfigData().getEnchantment().getLevel().get("1").getRepairAmount();
-        return (enchantmentLevel >= 1 && enchantmentLevel <= levels) ? experienceAmount * levels : 0;
+    private static int getMendingAmount(int level, int experienceAmount) {
+        if (MRConfig.getConfigData().isEmpty()) {
+            return 2; // default value
+        }
+
+        return MRConfig.getConfigData().values().stream()
+                .map(configData -> configData.enchantment().level().orElse(Collections.emptyMap()))
+                .map(levels -> levels.get(String.valueOf(level)))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(config -> config.repairAmount() * experienceAmount)
+                .orElse(2); // default value
     }
 }
+
+
 
